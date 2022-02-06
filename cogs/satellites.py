@@ -6,6 +6,7 @@ from typing import Union
 from models.opensea import FloorPrice
 from discord.ext import commands, tasks
 from discord import Activity, ActivityType
+from assets import creds
 
 
 log = logging.getLogger(__name__)
@@ -31,12 +32,13 @@ async def get_opensea_floor_price(url: str, alias: str) -> Union[FloorPrice, boo
     source = "OpenSea"
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             async with session.get(url) as response:
                 content = await response.json()
                 if content:
                     price = content['collection']['stats']['floor_price']
-                    return FloorPrice(source=source, price=f"{price} ETH", project=alias)
+                    one_day_sales = content['collection']['stats']['one_day_sales']
+                    return FloorPrice(source=source, price=f"{price} ETH", project=alias, one_day_sales=one_day_sales)
     except Exception as error:
         log.error(f"[ENDPOINT] [{source}] API response was invalid {error}.")
     log.error(f"[ENDPOINT] [{source}] API request did not return the expected response: {content}.")
@@ -63,10 +65,13 @@ class NFT(commands.Cog):
 
         self.alias = alias
         self.url = url
+        
+        self.channel_id=creds.nft_pings
 
         self.price = ""
         self.status = ""
         self.member_of_guilds = None
+        self.one_day_sales = ""
 
         self.updater.start()
 
@@ -80,10 +85,10 @@ class NFT(commands.Cog):
 
         guild = self.bot.get_guild(guild_id)
         bot_instance = guild.me
+        nickname_override = 'mousebot'
+        #await bot_instance.edit(nick=nickname_override)
 
-        await bot_instance.edit(nick=self.price)
-
-        log.info(f"[UPDATE] [{self.bot_type}] - [{guild}] - [{self.alias}] Nickname: {self.price} Activity: {self.status}")
+        log.info(f"[UPDATE] [{self.bot_type}] - [{guild}] - [{self.alias}] Nickname: {nickname_override} Activity: {self.status}")
 
     async def update_nft_floor_price(self) -> bool:
 
@@ -98,11 +103,16 @@ class NFT(commands.Cog):
         if nft_floor_price:
             self.price = f"{nft_floor_price.price}"
             self.status = f"{nft_floor_price.project} floor price on {nft_floor_price.source}"
+            self.one_day_sales = f"{nft_floor_price.one_day_sales}"
 
             return True
         return False
+    
+    async def send_message(self, message: str) -> None:
+        channel = self.bot.get_channel(self.channel_id)
+        await channel.send(message)
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=30)
     async def updater(self):
 
         """Task to fetch new data and update the bots nickname and activity in Discord.
@@ -118,10 +128,16 @@ class NFT(commands.Cog):
                 UI: 'Watching BAYC floor price on OpenSea'
         """
 
+        #pinged_today=False
+
         self.member_of_guilds = [guild.id for guild in self.bot.guilds]
         valid_response = await self.update_nft_floor_price()
 
         if valid_response:
+            if self.price > '3.0':
+                await self.send_message(f"@here Floor price of {self.alias}: {self.price}")
+            if self.one_day_sales > '20.0':
+                await self.send_message(f"@here One day sales of {self.alias}: {self.one_day_sales}")
             await self.bot.change_presence(activity=Activity(type=ActivityType.watching, name=self.status))
             update_jobs = [self.update_interface_elements(guild_id) for guild_id in self.member_of_guilds]
             await asyncio.gather(*update_jobs)
@@ -129,7 +145,7 @@ class NFT(commands.Cog):
     @updater.before_loop
     async def before_update(self):
 
-        """Ensure this bot is initialized before updating it's nickname or status."""
+        """Ensure this bot is initialized before updating its nickname or status."""
 
         await self.bot.wait_until_ready()
         self.member_of_guilds = [guild.id for guild in self.bot.guilds]

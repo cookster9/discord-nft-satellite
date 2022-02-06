@@ -1,3 +1,9 @@
+#creds
+creds.py
+
+#local stuff
+project_planning/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
