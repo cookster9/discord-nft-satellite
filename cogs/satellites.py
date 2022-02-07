@@ -38,7 +38,7 @@ async def get_opensea_floor_price(url: str, alias: str) -> Union[FloorPrice, boo
                 if content:
                     price = content['collection']['stats']['floor_price']
                     one_day_sales = content['collection']['stats']['one_day_sales']
-                    return FloorPrice(source=source, price=f"{price} ETH", project=alias, one_day_sales=one_day_sales)
+                    return FloorPrice(source=source, price=f"{price}", project=alias, one_day_sales=f"{one_day_sales}")
     except Exception as error:
         log.error(f"[ENDPOINT] [{source}] API response was invalid {error}.")
     log.error(f"[ENDPOINT] [{source}] API request did not return the expected response: {content}.")
@@ -108,7 +108,7 @@ class NFT(commands.Cog):
             return True
         return False
     
-    async def send_message(self, message: str) -> None:
+    async def send_message(self, message: str) -> None:        
         channel = self.bot.get_channel(self.channel_id)
         await channel.send(message)
 
@@ -136,7 +136,7 @@ class NFT(commands.Cog):
         if valid_response:
             if self.price > '3.0':
                 await self.send_message(f"@here Floor price of {self.alias}: {self.price}")
-            if self.one_day_sales > '20.0':
+            if self.one_day_sales > '25.0':
                 await self.send_message(f"@here One day sales of {self.alias}: {self.one_day_sales}")
             await self.bot.change_presence(activity=Activity(type=ActivityType.watching, name=self.status))
             update_jobs = [self.update_interface_elements(guild_id) for guild_id in self.member_of_guilds]
