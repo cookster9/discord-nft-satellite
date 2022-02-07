@@ -134,9 +134,9 @@ class NFT(commands.Cog):
         valid_response = await self.update_nft_floor_price()
 
         if valid_response:
-            if self.price > '3.0':
+            if float(self.price) > 3.0:
                 await self.send_message(f"@here Floor price of {self.alias}: {self.price}")
-            if self.one_day_sales > '25.0':
+            if float(self.one_day_sales) > 25.0:
                 await self.send_message(f"@here One day sales of {self.alias}: {self.one_day_sales}")
             await self.bot.change_presence(activity=Activity(type=ActivityType.watching, name=self.status))
             update_jobs = [self.update_interface_elements(guild_id) for guild_id in self.member_of_guilds]
