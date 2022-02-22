@@ -32,29 +32,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-    #args.url
- 
-    if args.alias == '':
-        alias_to_use=creds.alias
-    else:
-        alias_to_use=args.alias
+    #dictionary = {alias: price to trigger alert}
+    alias_array = creds.alias_array
 
-    if args.url == '':
-        url_to_use="https://api.opensea.io/collection/"+alias_to_use
-    else:
-        url_to_use=args.url
-
-    if args.discord_token == '':
-        token_to_use=creds.bot_key
-    else:
-        token_to_use=args.discord_token
-        
-    alias_to_use=creds.alias
-    url_to_use="https://api.opensea.io/collection/"+alias_to_use
     token_to_use=creds.bot_key
 
     satellite = commands.Bot(command_prefix=str(uuid.uuid4()))
-    satellite.add_cog(NFT(bot=satellite, alias=alias_to_use, url=url_to_use))
+    satellite.add_cog(NFT(bot=satellite, alias_dict=alias_array))
     
     with setup_logging():
         satellite.run(token_to_use)

@@ -12,7 +12,7 @@ from assets import creds
 log = logging.getLogger(__name__)
 
 
-async def get_opensea_floor_price(url: str, alias: str) -> Union[FloorPrice, bool]:
+async def get_opensea_floor_price(alias: str) -> Union[FloorPrice, bool]:
 
     """Queries the API endpoint of an NFT collection on OpenSea and parses the response to retrieve the floor price.
 
@@ -30,6 +30,7 @@ async def get_opensea_floor_price(url: str, alias: str) -> Union[FloorPrice, boo
     """
 
     source = "OpenSea"
+    url="https://api.opensea.io/collection/"+alias
 
     try:
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
@@ -57,21 +58,19 @@ class NFT(commands.Cog):
 
     def __init__(self,
                  bot: commands.Bot,
-                 alias: str,
-                 url: str):
+                 alias_dict: dict):
 
         self.bot = bot
         self.bot_type = self.__class__.__name__
 
-        self.alias = alias
-        self.url = url
+        self.alias_dict = alias_dict
         
         self.channel_id=creds.nft_pings
 
-        self.price = ""
-        self.status = ""
+        self.price = {}
+        self.status = "Watching floor prices"
         self.member_of_guilds = None
-        self.one_day_sales = ""
+        self.one_day_sales = {}
 
         self.updater.start()
 
@@ -88,9 +87,9 @@ class NFT(commands.Cog):
         nickname_override = 'mousebot'
         #await bot_instance.edit(nick=nickname_override)
 
-        log.info(f"[UPDATE] [{self.bot_type}] - [{guild}] - [{self.alias}] Nickname: {nickname_override} Activity: {self.status}")
+        #log.info(f"[UPDATE] [{self.bot_type}] - [{guild}] - [{self.alias}] Nickname: {nickname_override} Activity: {self.status}")
 
-    async def update_nft_floor_price(self) -> bool:
+    async def update_nft_floor_price(self, alias: str) -> bool:
 
         """Fetches latest NFT price from sources to update the price and status attributes.
 
@@ -98,12 +97,12 @@ class NFT(commands.Cog):
             True if successful else False
         """
 
-        nft_floor_price = await get_opensea_floor_price(url=self.url, alias=self.alias)
+        nft_floor_price = await get_opensea_floor_price(alias=alias)
 
         if nft_floor_price:
-            self.price = f"{nft_floor_price.price}"
-            self.status = f"{nft_floor_price.project} floor price on {nft_floor_price.source}"
-            self.one_day_sales = f"{nft_floor_price.one_day_sales}"
+            self.price[alias] = f"{nft_floor_price.price}"
+            #self.status[alias] = f"{nft_floor_price.project} floor price on {nft_floor_price.source}"
+            self.one_day_sales[alias] = f"{nft_floor_price.one_day_sales}"
 
             return True
         return False
@@ -112,7 +111,7 @@ class NFT(commands.Cog):
         channel = self.bot.get_channel(self.channel_id)
         await channel.send(message)
 
-    @tasks.loop(minutes=30)
+    @tasks.loop(minutes=1)
     async def updater(self):
 
         """Task to fetch new data and update the bots nickname and activity in Discord.
@@ -128,19 +127,20 @@ class NFT(commands.Cog):
                 UI: 'Watching BAYC floor price on OpenSea'
         """
 
-        #pinged_today=False
+        #pinged_today=False        
 
         self.member_of_guilds = [guild.id for guild in self.bot.guilds]
-        valid_response = await self.update_nft_floor_price()
+        for key in self.alias_dict:
+            valid_response = await self.update_nft_floor_price(key)
 
-        if valid_response:
-            if float(self.price) > 3.0:
-                await self.send_message(f"@here Floor price of {self.alias}: {self.price}")
-            if float(self.one_day_sales) > 25.0:
-                await self.send_message(f"@here One day sales of {self.alias}: {self.one_day_sales}")
-            await self.bot.change_presence(activity=Activity(type=ActivityType.watching, name=self.status))
-            update_jobs = [self.update_interface_elements(guild_id) for guild_id in self.member_of_guilds]
-            await asyncio.gather(*update_jobs)
+            if valid_response:
+                if float(self.price[key]) > float(self.alias_dict[key]):
+                    await self.send_message(f"@here Floor price of {key}: {self.price[key]}")
+                # if float(self.one_day_sales[key]) > 1.0:
+                #     await self.send_message(f"@here One day sales of {key}: {self.one_day_sales[key]}")
+                await self.bot.change_presence(activity=Activity(type=ActivityType.watching, name=self.status))
+                update_jobs = [self.update_interface_elements(guild_id) for guild_id in self.member_of_guilds]
+                await asyncio.gather(*update_jobs)
 
     @updater.before_loop
     async def before_update(self):
@@ -150,7 +150,7 @@ class NFT(commands.Cog):
         await self.bot.wait_until_ready()
         self.member_of_guilds = [guild.id for guild in self.bot.guilds]
 
-        log.info(f"[INIT] [{self.bot_type}] - [{self.alias}] Bot started successfully, active on {len(self.member_of_guilds)} servers.")
+        log.info(f"[INIT] [{self.bot_type}] - Bot started successfully, active on {len(self.member_of_guilds)} servers.")
 
     def __str__(self):
         return f"Discord NFT satellite for {self.alias}"
