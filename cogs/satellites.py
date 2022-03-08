@@ -68,7 +68,7 @@ class NFT(commands.Cog):
         self.channel_id=creds.nft_pings
 
         self.price = {}
-        self.status = "Watching floor prices"
+        self.status = "floor prices"
         self.member_of_guilds = None
         self.one_day_sales = {}
 
@@ -111,7 +111,7 @@ class NFT(commands.Cog):
         channel = self.bot.get_channel(self.channel_id)
         await channel.send(message)
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=10)
     async def updater(self):
 
         """Task to fetch new data and update the bots nickname and activity in Discord.
@@ -130,14 +130,14 @@ class NFT(commands.Cog):
         #pinged_today=False        
 
         self.member_of_guilds = [guild.id for guild in self.bot.guilds]
+        await self.send_message(f":rocket: :rocket: :rocket: :rocket: :rocket: :rocket: :rocket: :rocket: :rocket: :rocket:")
         for key in self.alias_dict:
             valid_response = await self.update_nft_floor_price(key)
 
             if valid_response:
+                await self.send_message(f"Floor price of {key}: {self.price[key]}")
                 if float(self.price[key]) > float(self.alias_dict[key]):
-                    await self.send_message(f"@here Floor price of {key}: {self.price[key]}")
-                # if float(self.one_day_sales[key]) > 1.0:
-                #     await self.send_message(f"@here One day sales of {key}: {self.one_day_sales[key]}")
+                    await self.send_message(f"@here")
                 await self.bot.change_presence(activity=Activity(type=ActivityType.watching, name=self.status))
                 update_jobs = [self.update_interface_elements(guild_id) for guild_id in self.member_of_guilds]
                 await asyncio.gather(*update_jobs)

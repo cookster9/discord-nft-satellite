@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-    #dictionary = {alias: price to trigger alert}
+    #dictionary = {opensea alias: price to trigger alert}
     alias_array = creds.alias_array
 
     token_to_use=creds.bot_key
